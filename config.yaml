@@ -47,6 +47,9 @@ model_list:
 
 router_settings:
   # Routes each "auto" request to whichever deployment is currently cheapest per token.
+  # This file is for LOCAL docker-compose, where Redis is the plain local
+  # container (no TLS, no password) — see fly/config.yaml and
+  # render/config.yaml for the Upstash (TLS) variant used in real deployments.
   routing_strategy: cost-based-routing
   redis_host: os.environ/REDIS_HOST
   redis_port: os.environ/REDIS_PORT

@@ -47,10 +47,10 @@ model_list:
 
 router_settings:
   # Routes each "auto" request to whichever deployment is currently cheapest per token.
+  # Upstash requires TLS (rediss://) — pass the whole URL here rather than
+  # separate host/port to avoid needing a separate SSL flag on this block.
   routing_strategy: cost-based-routing
-  redis_host: os.environ/REDIS_HOST
-  redis_port: os.environ/REDIS_PORT
-  redis_password: os.environ/REDIS_PASSWORD
+  redis_url: os.environ/REDIS_URL
   num_retries: 2
   timeout: 30
   # If every deployment behind "auto" fails, fall through to the direct aliases
@@ -78,6 +78,7 @@ litellm_settings:
     host: os.environ/REDIS_HOST
     port: os.environ/REDIS_PORT
     password: os.environ/REDIS_PASSWORD
+    ssl: true
     ttl: 600
 
 # Proxy-level guardrail — PII redaction, prompt-injection blocking, and
