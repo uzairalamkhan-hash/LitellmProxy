@@ -1,0 +1,91 @@
+model_list:
+  # Three real model endpoints under one alias — the app calls "auto" and
+  # cost-based routing (below) decides which one answers.
+  - model_name: auto
+    litellm_params:
+      model: gemini/gemini-1.5-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      id: gemini-flash
+
+  - model_name: auto
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+    model_info:
+      id: groq-llama-70b
+
+  - model_name: auto
+    litellm_params:
+      model: gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      id: openai-gpt4o-mini
+
+  # Directly-addressable aliases, for tests that want a specific model and for
+  # the fallback chain below.
+  - model_name: gemini-direct
+    litellm_params:
+      model: gemini/gemini-1.5-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: groq-direct
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+
+  - model_name: openai-direct
+    litellm_params:
+      model: gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Add ANTHROPIC_API_KEY to .env later to re-enable this
+  - model_name: claude-direct
+    litellm_params:
+      model: claude-3-5-haiku-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+router_settings:
+  # Routes each "auto" request to whichever deployment is currently cheapest per token.
+  routing_strategy: cost-based-routing
+  redis_host: os.environ/REDIS_HOST
+  redis_port: os.environ/REDIS_PORT
+  redis_password: os.environ/REDIS_PASSWORD
+  num_retries: 2
+  timeout: 30
+  # If every deployment behind "auto" fails, fall through to the direct aliases
+  # in order — same fallback-chain behavior the notebook demonstrates at the
+  # SDK level, now live on the deployed proxy.
+  fallbacks:
+    - auto: ["gemini-direct", "groq-direct", "openai-direct"]
+
+general_settings:
+  # Requests to the proxy must send this as a Bearer token (or a virtual key minted from it).
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  # Per-call observability callback — notebook Part 9, live on the proxy
+  # itself (see callbacks/custom_logger.py). Logs to stdout: `docker compose
+  # logs -f litellm-proxy`, `fly logs`, or Render's log stream.
+  callbacks: callbacks.custom_logger.proxy_handler_instance
+  # Redis-backed caching — identical prompts within the TTL are served from
+  # cache instead of re-billing the provider (notebook Part 6, live here).
+  cache: true
+  cache_params:
+    type: redis
+    host: os.environ/REDIS_HOST
+    port: os.environ/REDIS_PORT
+    password: os.environ/REDIS_PASSWORD
+    ttl: 600
+
+# Proxy-level guardrail — PII redaction, prompt-injection blocking, and
+# forbidden-topic blocking all run here on every request (see
+# guardrails/custom_guardrail.py). This is the production-equivalent of the
+# three guardrail notebook cells.
+guardrails:
+  - guardrail_name: "liveramp-safety"
+    litellm_params:
+      guardrail: guardrails.custom_guardrail.LiveRampSafetyGuardrail
+      mode: "pre_call"

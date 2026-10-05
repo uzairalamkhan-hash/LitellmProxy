@@ -1,0 +1,19 @@
+# Fly.io app config for the LiteLLM proxy PoC.
+# `fly launch` will generate/adjust this — fields below are the ones that matter.
+
+app = "liveramp-litellm-proxy-poc"   # change if this name is taken
+primary_region = "iad"               # pick the region closest to your testers
+
+[build]
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = true   # scales to zero when nobody's testing — no idle cost
+  auto_start_machines = true  # wakes automatically on the next request (~1-2s cold start)
+  min_machines_running = 0
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
